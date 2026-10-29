@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartes mémoire — Dirigeant responsable AMF</title>
+<style>
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --text: #172033;
+  --muted: #1858b8;
+  --accent: #1e72d1;
+  --accent2: #2a1ddd;
+  --shadow: 0 12px 35px rgba(31, 41, 55, .12);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+}
+h1 { text-align:center; margin: 0 0 8px; font-size: 28px; }
+.subtitle { text-align:center; color:var(--muted); margin-bottom:24px; }
+.counter { text-align:center; color:var(--muted); margin-bottom:18px; font-size:14px; }
+.success-panel { position: sticky; top: 0; z-index: 30; background: rgba(244,247,251,.96); backdrop-filter: blur(8px); padding: 12px 0 14px; margin: 0 0 18px; }
+.success-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; max-width:560px; margin:0 auto 8px; font-size:14px; font-weight:bold; }
+.success-percent { color:#19c909; font-size:22px; font-weight:800; }
+.success-track { max-width:560px; height:10px; margin:0 auto 7px; background:#fecaca; border-radius:999px; overflow:hidden; }
+.success-fill { height:100%; width:100%; background:#20ca4b; border-radius:999px; transition:width .25s ease; }
+.success-details { text-align:center; color:var(--muted); font-size:12px; }
+.grid { display:flex; flex-direction:column; gap:16px; }
+.card-wrap {
+  perspective: 1200px;
+  height: 190px;
+  cursor: pointer;
+}
+.card {
+  width:100%; height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transition: transform .6s ease;
+}
+.card.flipped { transform:rotateY(180deg); }
+.face {
+  position:absolute; inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  background:var(--card);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:28px;
+  font-size:20px;
+  line-height:1.45;
+}
+.front { border-top:5px solid var(--accent); }
+.back {
+  transform:rotateY(180deg);
+  border-top:5px solid #310123;
+  font-size:18px;
+}
+.hint {
+  position:absolute; bottom:10px; left:0; right:0;
+  text-align:center; font-size:12px; color:var(--muted);
+}
+button {
+  display:block;
+  margin:30px auto 0;
+  border:0;
+  border-radius:999px;
+  padding:14px 30px;
+  background:var(--accent);
+  color:white;
+  font-size:17px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(49,94,251,.25);
+}
+button:hover { background:var(--accent2); }
+
+.card-wrap { position: relative; }
+.card-wrap.marked .face { border: 3px solid #e53935 !important; }
+.card-wrap.marked .front { border-top: 5px solid #e53935 !important; }
+.mark-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #b71c1c;
+  background: #e53935;
+  padding: 0;
+  margin: 0;
+  z-index: 20;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18);
+}
+.mark-btn:hover { background: #c62828; }
+.mark-btn.marked { background: #8b0000; }
+
+/* Bulle flottante des cartes d'erreurs */
+.error-bubble {
+  position: fixed; right: 22px; bottom: 22px; z-index: 1000;
+  width: 62px; height: 62px; border-radius: 50%; margin: 0; padding: 0;
+  background: #e53935; color: #fff; border: 3px solid #fff;
+  box-shadow: 0 5px 18px rgba(0,0,0,.25); font-size: 25px;
+  display: flex; align-items: center; justify-content: center;
+}
+.error-bubble:hover { background: #c62828; }
+.error-badge {
+  position: absolute; top: -6px; right: -5px; min-width: 25px; height: 25px;
+  padding: 0 6px; border-radius: 999px; background: #172033; color: white;
+  border: 2px solid white; font-size: 13px; line-height: 21px; text-align: center;
+}
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1100;
+  background: rgba(15, 23, 42, .62); padding: 24px;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.error-modal {
+  width: min(850px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--bg); border-radius: 18px; padding: 24px; position: relative;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-right: 42px; }
+.modal-header h2 { margin: 0 0 18px; font-size: 22px; }
+.close-modal {
+  position: absolute; top: 12px; right: 12px; margin: 0; width: 38px; height: 38px;
+  padding: 0; border-radius: 50%; background: #e5e7eb; color: #172033; font-size: 25px;
+  box-shadow: none;
+}
+.close-modal:hover { background: #cbd5e1; }
+.error-list { display: flex; flex-direction: column; gap: 14px; }
+.error-card { position: relative; min-height: 145px; background: white; border: 2px solid #e53935;
+  border-top: 5px solid #e53935; border-radius: 14px; padding: 24px 48px 24px 20px;
+  box-shadow: var(--shadow); cursor: pointer; white-space: pre-wrap; line-height: 1.45; }
+.error-card .answer { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+.error-card.flipped .answer { display: block; }
+.unmark-btn {
+  position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; width: 20px; height: 20px;
+  min-width: 20px; border-radius: 50%; border: 2px solid #0759b7; background: #1e72d1;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18); z-index: 2;
+}
+.unmark-btn:hover { background: #084f9e; }
+.empty-errors { text-align: center; color: var(--muted); padding: 28px 12px; }
+@media (max-width:600px) {
+  .error-bubble { right: 14px; bottom: 14px; width: 56px; height: 56px; }
+  .modal-overlay { padding: 10px; } .error-modal { padding: 18px 12px; max-height: 92vh; }
+  .modal-header h2 { font-size: 19px; }
+}
+
+@media (max-width:600px) {
+  .card-wrap { height:220px; }
+  .face { font-size:18px; padding:22px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📚 ADM1015 Chapitres 1 à 3</h1>
+  <div class="subtitle">Clique sur une question pour voir la réponse. Reclique pour revenir à la question.</div>
+  <div class="success-panel" aria-live="polite">
+    <div class="success-heading"><span>✅ Taux de réussite</span><span id="successPercent" class="success-percent">100 %</span></div>
+    <div class="success-track" role="progressbar" aria-label="Taux de réussite" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="successFill" class="success-fill"></div></div>
+    <div id="successDetails" class="success-details">0 carte en rouge · 0 carte réussie sur 0</div>
+  </div>
+  <div class="counter"><span id="count">0</span> cartes</div>
+  <div id="cards" class="grid"></div>
+  <button id="shuffleBtn">🔀 Mélanger</button>
+</div>
+
+<button id="errorBubble" class="error-bubble" type="button" aria-label="Afficher les cartes d'erreurs" title="Afficher les cartes d'erreurs">
+  ⚑ <span id="errorBadge" class="error-badge">0</span>
+</button>
+
+<div id="errorModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="errorModalTitle">
+  <div class="error-modal">
+    <button id="closeErrorModal" class="close-modal" type="button" aria-label="Fermer">×</button>
+    <div class="modal-header"><h2 id="errorModalTitle">🔴 Mes cartes d'erreurs (<span id="modalErrorCount">0</span>)</h2></div>
+    <div id="errorCardsList" class="error-list"></div>
+  </div>
+</div>
+
+<script>
+const originalCards = [
+{
+    q: "Quelles sont les étapes du processus de la performance en entreprise?",
+    a: "1) définition des attentes 2) soutien de la performance 3) évaluer la performance 4) reconnaître et développer."
+  },{
+    q: "Quelles sont les principales causes d'échecs reliées au système de gestion de la performance?",
+    a: "1) organisation exploitant mal le potentiel du système 2) manques de soutien de la direction 3) problèmes liés aux problèmes d'implantation 4) déploiements dans l'implantation."
+  },{
+    q: "Quels sont les 3 facteurs d'impact de la performance?",
+    a: "1) gestion des finances ou des stocks 2) la compétition 3) qualité des produits."
+  },{
+    q: "Quels sont les avantages d'un bon système de performance?",
+    a: "1) renforcer la culture des performances dans l'entreprise 2) améliorent la compréhension des priorités organisationnelles 3) aident à prendre de meilleures décisions de ressources humaines (rémunération)."
+  },{
+    q: "Quels sont les désavantages d'un système de gestion de la performance mal implantée?",
+    a: "1) baisse de la satisfaction 2) baisse de l'engagement."
+  },{
+    q: "Quelles sont les principales responsabilités des ressources humaines?",
+    a: "1) posséder une excellente compréhension de l'organisation 2) adopter une approche client dans le développement de leurs nouvelles pratiques 3) équipes des ressources humaines doivent collaborer plus efficacement 4) les gestionnaires doivent jouer des rôles (gérer et évaluer la performance de leurs employés + attentes de performances, + communiquer clairement et motiver les employés)."
+  },{
+    q: "Si on veut que les employés performent quels sont les rôles des gestionnaires en matière de la performance?",
+    a: "1) Établir clairement les cibles à atteindre 2) essayez de les lier le plus possible aux forces de chacun 3) bien connaître ses employés 4) donner toutes les chances à l'employé d'atteindre ses objectifs en offrant les soutiens nécessaires 5) rétroactions et connaissances de la performance doivent être fréquents et constructives 6) créer un climat de confiance dans l'équipe."
+  },{
+    q: "Quels sont les 3 concepts de la gestion de la performance?",
+    a: "1) gestion de la performance 2) systèmes de gestion de la performance 3) processus de gestion de la performance."
+  },{
+    q: "Quelles sont les différences entre les 3 concepts de la gestion de la performance?",
+    a: "1) gestion de la performance = (La discipline / Le domaine), 2) systèmes de gestion de la performance = (L’infrastructure / La boîte à outils), 3) processus de gestion de la performance = (L’horloge / La séquence temporelle, qui réfère spécifiquement aux différentes étapes chronologiques)."
+  },{
+    q: "Quelle est la définition de la gestion de la performance?",
+    a: "Regroupe un ensemble d'activités cycliques visant à évaluer et à gérer la performance des employés dans leur travail."
+  },{
+    q: "Quels sont les rôles des partenaires d'affaires RH de l'entreprise par rapport au soutien de la performance?",
+    a: "Soutiennent les gestionnaires dans la gestion quotidienne de leurs employés. Aussi appelé conseiller RH dédié à une unité d’affaires, il est coach et conseille le gestionnaire, il n’évalue pas d’employés ni ne donne aucunes directives à des employés non plus."
+  },{
+    q: "Quels sont les rôles des gestionnaires de l'entreprise par rapport à la gestion de la performance?",
+    a: "- gère la performance des employés, - s'assure que les employés comprennent leur rôle et leurs attentes fixées."
+  },{
+    q: "Quels sont les rôles des employés dans l'entreprise par rapport à la gestion de la performance?",
+    a: "– peuvent se fixer des objectifs, - doivent performer dans leur emploi, - peuvent s'auto-évaluer."
+  },{
+    q: "Que signifie SGP?",
+    a: "Système de gestion de la performance."
+  },{
+    q: "Quel objectif prioriser pour le SGP?",
+    a: "- soutenir la stratégie, - bonnes décisions RH (ex : utilisez éventuellement comme base de promotion ou ciblée des cas problématiques qui méritent une plus grande attention)."
+  },{
+    q: "Quels sont les 2 éléments de la performance au travail?",
+    a: "1) l'origine comportementale de la performance (Ce que fait l'employé), 2) la valeur attendue (L'impact sur l'organisation)."
+  },{
+    q: "Quelle est la définition de ''la performance au travail''?",
+    a: "Valeur attendue par l'organisation de l'ensemble des comportements adopté par l'employé au cours d'une période donnée."
+  },{
+    q: "Quelle est la définition de ‘’comportement des résultats et de la performance’’?",
+    a: "Les comportements sont les actions prises par l'individu sa performance est la valeur pour l'organisation de ses actions et les résultats sont les moyens par lesquels les actions de l'employé contribuent ou nuisent aux objectifs organisationnels."
+  },{
+    q: "Quelles sont les 4 dimensions de la performance?",
+    a: "1) performance de la tâche, 2) performance contextuelle ou de citoyenneté, 3) performance adaptative, 4) comportements contre-productif."
+  },{
+    q: "Nomme le synonyme de  ‘’les critères de performance’’?",
+    a: "Les dimensions de la performance."
+  },{
+    q: "Défini la performance dans la tâche?",
+    a: "Quantité/qualité du travail, résoudre des problèmes, performance dans la tâche et communications écrites/oral. Varie selon le poste, ça renvoie à l'efficacité de l'individu à remplir les exigences associées au rôle et aux responsabilités."
+  },{
+    q: "Définit la performance contextuelle (de citoyenneté)?",
+    a: "Ce sont des comportements qui sont valorisés plus globalement au sein d'un même service, Ça retouche tout ce qui est des comportements qui façonnent le climat de travail (ex : fournir des efforts supplémentaires, accepte des tâches non requises dans son poste, prends l'initiative, prends l'enthousiasme, attention aux détails, persistance, entraide, loyauté organisationnelle."
+  },{
+    q: "Quel est le type de performance relié au comportement de citoyenneté?",
+    a: "Performance contextuelle/de citoyenneté."
+  },{
+    q: "Nomme 3 synonymes de performance contextuelle?",
+    a: "Comportements contextuels, performance de citoyenneté, comportement de citoyenneté."
+  },{
+    q: "Définit la performance adaptative?",
+    a: "Capacité de l'individu à s'adapter à des situations de travail dynamique génère des idées innovantes, ajuste ses plans aux situations, apprend de nouvelles tâches ou technologies, ouvert à l'idée des autres, reste calme, capacité d'analyse et flexibilité, maintenir à jour des connaissances, ajuster ses plans aux situations. C'est s'ajuster aisément."
+  },{
+    q: "Quelles sont les 2 catégories de critères d'évaluation?",
+    a: "Critères conceptuels et critères opérationnels."
+  },{
+    q: "Que signifie critères conceptuels?",
+    a: "Capacité à innover ou rapidité du service et performance globale."
+  },{
+    q: "Que signifie critères opérationnels?",
+    a: "Indicateur permettant d'évaluer les critères conceptuels, on peut évaluer la capacité à innover par la ‘’fréquence’’ à laquelle l'employé suggère de nouvelles idées, évaluer la 'rapidité du service ‘’par le temps’’ requis pour régler les problèmes d'un client."
+  },{
+    q: "Quels sont les 3 critères/mesures de performance?",
+    a: "Traits, comportements et résultats."
+  },{
+    q: "Nomme un synonyme de critères de performance?",
+    a: "Mesures de performance."
+  },{
+    q: "Résolution de problème est un trait ou un comportement?",
+    a: "Comportement."
+  },{
+    q: "Le dynamisme est un trait ou un comportement?",
+    a: "Trait."
+  },{
+    q: "Qu'est-ce qu'un trait?",
+    a: "Qui reflète leur personnalité, compétences, attitude, capacité intellectuelle, etc."
+  },{
+    q: "Pourquoi plusieurs organisations combinent des mesures de comportement et des mesures de résultats?",
+    a: "Car un individu pourrait risquer de se voir attribuer une bonne ou une mauvaise performance alors qu'il ne le mérite pas, C'est pourquoi les organisations prennent des mesures de comportement et mesures de résultats."
+  },{
+    q: "Quelles sont les méthodes pour identifier les critères de performance adéquats?",
+    a: "1) méthode par observation, 2) méthode des incidents critiques, 3) méthode basée sur le jugement."
+  },{
+    q: "Qu'est-ce que les comportements contre-productifs?",
+    a: "C'est une mesure/critère de performance qui fait partie des dimensions de la performance mais puisque ça relève de la performance individuelle et que normalement lorsque vient le temps de développer un outil dévaluation on est supposé seulement prendre les expériences/dimensions positives, C'est pourquoi on ne voit pas vraiment cette dimension dans le cours."
+  },{
+    q: "Nomme mais des exemples de comportements contre-productifs?",
+    a: "Prendre des longues pauses, présentéisme, se plaint inutilement, arrive en retard, n'effectue pas correctement ses tâches, insulte des collègues, ne respecte pas les normes de sécurité, vole, etc."
+  },{
+    q: "Quelles sont les 3 méthodes d'analyse de l'intrant ‘’l'information liée au poste’’?",
+    a: "1) méthodes par observation, 2) méthode des incidents critiques, 3) méthode basée sur le jugement."
+  },{
+    q: "Qu'est-ce que la méthode par observation permet de faire?",
+    a: "D'obtenir un portrait réaliste des tâches effectuées par le titulaire du poste exécute au quotidien. L’observation peut se faire par le titulaire lui-même ou par une personne externe (ex : par RH)."
+  },{
+    q: "Qu'est-ce que la méthode des incidents critiques permet de faire?",
+    a: "Cible les comportements d'excellence ou médiocres, consiste à questionner le monde alentour de la personne pour demander en détail des moments précis et préciser le contexte des événements ce que la personne a fait quelles ont été ses comportements."
+  },{
+    q: "Qu'est-ce que la méthode basée sur le jugement permet de faire?",
+    a: "Non-systématique, consiste à se fier à l'expérience des gestionnaires familiers avec le poste. On veut questionner le plus d'un gestionnaire possible pour déterminer les critères (former un comité), rapide et peu coûteux."
+  },{
+    q: "Quelles sont les caractéristiques d'un bon critère de performance?",
+    a: "1) validité, 2) pertinence, 3) fidélité, 4) capacité discriminante."
+  },{
+    q: "Quelle est la condition spécifique permettant d'identifier un critère de performance comme étant un bon critère de performance/critère de grande qualité?",
+    a: "Il faut absolument que les 4 caractéristiques du bon critère de performance soient respectées (validité, permanence, fidélité, et capacité discriminante)."
+  },{
+    q: "Quel est le synonyme d'un bon critère de performance?",
+    a: "Critères de grande qualité."
+  },{
+    q: "Quels sont les 2 principaux types de fidélité?",
+    a: "1) interjuge : renvoi à la constance des résultats obtenus s'attendant que différents évaluateur offre une évaluation similaire d'un employé), 2) temporelle : renvoi à la constance des évaluations à différents moments."
+  },{
+    q: "Que signifie capacité discriminante?",
+    a: "Critères qui renvoient à son aptitude à différencier les employés performants des employés qui ne le sont pas. Plus le critère permet de distinguer les employés selon leur niveau de performance, plus il est jugé discriminant (ex : critères trop sévères risqueraient un débalancement)."
+  },{
+    q: "Qu'est ce qu'on privilégie comme critère pour évaluer la performance lorsque la performance d'un employé est tributaire d'éléments qui sont hors de notre contrôle?",
+    a: "Critères de comportement."
+  },{
+    q: "Qu'est-ce qu'on privilégie comme critère pour mesurer la performance lorsque les employés maîtrisent rapidement les compétences requises?",
+    a: "Résultat."
+  },{
+    q: "Qu'est ce qu'on privilégie comme critère pour mesurer la performance lorsque l'on veut encourager l'autonomie, l'initiative ou la créativité?",
+    a: "Résultat."
+  },{
+    q: "Quels critères privilégier pour quelquunqui.se porte volontaire pour effectuer des tâches additionnelles pour mesurer une performance contextuelle?",
+    a: "Comportement."
+  },{
+    q: "Quels critères privilégier pour réorganiser aisément ces tâches pour faire face à de nouvelles circonstances qui permettent de mesurer la performance adaptative?",
+    a: "Comportement."
+  },{
+    q: "Quelles sont les différentes étapes d'élaboration de critères de performance?",
+    a: "1) définir les principaux critères (consulter un petit groupe d’experts (comme gestionnaires et employés expérimentés), 2) déterminez les critères critiques à la performance (sondage auprès des employés et superviseurs), 3) développer des standards de performance (fixer la barre à atteindre, 4) valider la version finale (faire un dernier contrôle qualité avant de développer l’outil officiellement - critères adaptés et standards adéquats)."
+  },{
+    q: "Que signifi ‘’intrants’’?",
+    a: "Les intrants regroupent toutes les informations servant de base pour déterminer les critères de performance. Ça désigne l'ensemble des données, informations et éléments de référence que l'on récolte pour concevoir et formuler les critères d'évaluation d'un poste."
+  },{
+    q: "Quels sont les 4 grands intrants à connaître?",
+    a: "1) l'information liée au poste, 2) les valeurs de l'organisation, 3) les priorités organisationnelles, 4) les objectifs du SGP."
+  },{
+    q: "Qu'est-ce que l'intrant ‘’ l'information liée au poste’’?",
+    a: "Source primaire d'infos elle s'appuie sur les méthodes pour déterminer la description et l'analyse de poste (méthodes par observation, méthode des incidents critiques, méthode basée sur le jugement)."
+  },{
+    q: "Qu’est-ce que l’intrant ‘’Les valeurs de l’organisation’’?",
+    a: "Comportements attendus devant refléter les valeurs de l'entreprise."
+  },{
+    q: "Que signifie l’intrant ‘’Les priorités organisationnelles’’?",
+    a: "Les objectifs stratégiques sur lesquels les employés doivent faire des efforts."
+  },{
+    q: "Que signifie l'intrant ‘’ les objets du SGP’’?",
+    a: "On cible les critères de performance à adapter selon ce que l'entreprise vise."
+  },{
+    q: "?",
+    a: "."
+  },{
+    q: "?",
+    a: "."
+  },{
+    q: "?",
+    a: "."
+  },
+
+];let cards = [...originalCards];
+const markedCards = new Set();
+
+function updateErrorCount() {
+  const count = markedCards.size;
+  document.getElementById('errorBadge').textContent = count;
+  document.getElementById('modalErrorCount').textContent = count;
+
+  const total = cards.length;
+  const successful = Math.max(0, total - count);
+  const percentage = total ? Math.round((successful / total) * 100) : 0;
+  document.getElementById('successPercent').textContent = percentage + ' %';
+  document.getElementById('successFill').style.width = percentage + '%';
+  document.querySelector('.success-track').setAttribute('aria-valuenow', percentage);
+  document.getElementById('successDetails').textContent =
+    `${count} carte${count === 1 ? '' : 's'} en rouge · ${successful} carte${successful === 1 ? '' : 's'} réussie${successful === 1 ? '' : 's'} sur ${total}`;
+}
+
+function createCardFace(item, isErrorList = false) {
+  const wrap = document.createElement('div');
+  if (isErrorList) {
+    wrap.className = 'error-card';
+    wrap.innerHTML = `<button class="unmark-btn" type="button" aria-label="Retirer cette carte des cartes d'erreurs" title="Remettre cette carte en normal"></button>
+      <strong>${escapeHtml(item.q)}</strong><div class="answer">${escapeHtml(item.a)}</div>`;
+    wrap.querySelector('.unmark-btn').addEventListener('click', (event) => {
+      event.stopPropagation();
+      markedCards.delete(item);
+      render();
+      renderErrorCards();
+    });
+    wrap.addEventListener('click', () => wrap.classList.toggle('flipped'));
+    return wrap;
+  }
+
+  wrap.className = 'card-wrap' + (markedCards.has(item) ? ' marked' : '');
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="face front">
+        <div>${escapeHtml(item.q)}</div>
+        <div class="hint">Clique pour voir la réponse 👆</div>
+      </div>
+      <div class="face back">
+        <div>${escapeHtml(item.a)}</div>
+        <div class="hint">Clique pour revenir à la question 👆</div>
+      </div>
+    </div>`;
+
+  const markBtn = document.createElement('button');
+  markBtn.className = 'mark-btn' + (markedCards.has(item) ? ' marked' : '');
+  markBtn.type = 'button';
+  markBtn.setAttribute('aria-label', markedCards.has(item) ? 'Retirer des cartes d’erreurs' : 'Marquer cette question comme erreur');
+  markBtn.title = markedCards.has(item) ? 'Carte marquée comme erreur' : 'Marquer comme erreur';
+  wrap.appendChild(markBtn);
+
+  markBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (markedCards.has(item)) markedCards.delete(item);
+    else markedCards.add(item);
+    render();
+    renderErrorCards();
+  });
+
+  wrap.addEventListener('click', () => {
+    wrap.querySelector('.card').classList.toggle('flipped');
+  });
+  return wrap;
+}
+
+function render() {
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  document.getElementById('count').textContent = cards.length;
+  cards.forEach(item => container.appendChild(createCardFace(item)));
+  updateErrorCount();
+}
+
+function renderErrorCards() {
+  const container = document.getElementById('errorCardsList');
+  container.innerHTML = '';
+  const errorCards = cards.filter(item => markedCards.has(item));
+  document.getElementById('modalErrorCount').textContent = errorCards.length;
+  document.getElementById('errorBadge').textContent = errorCards.length;
+  if (errorCards.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-errors';
+    empty.textContent = 'Aucune carte en rouge pour le moment. Clique sur le point rouge d’une carte pour l’ajouter ici.';
+    container.appendChild(empty);
+    return;
+  }
+  errorCards.forEach(item => container.appendChild(createCardFace(item, true)));
+}
+
+const errorModalOverlay = document.getElementById('errorModalOverlay');
+document.getElementById('errorBubble').addEventListener('click', () => {
+  renderErrorCards();
+  errorModalOverlay.classList.add('open');
+});
+document.getElementById('closeErrorModal').addEventListener('click', () => errorModalOverlay.classList.remove('open'));
+errorModalOverlay.addEventListener('click', event => {
+  if (event.target === errorModalOverlay) errorModalOverlay.classList.remove('open');
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') errorModalOverlay.classList.remove('open');
+});
+
+function escapeHtml(value) {
+  return value
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  render();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+render();
+</script>
+</body>
+</html>
